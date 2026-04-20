@@ -55,8 +55,8 @@
 ## 5. Individual Contributions & Evidence
 
 ### [Ninh Quang Trí]
-- [TASKS_COMPLETED]: Triển khai cấu trúc JSON logging chuẩn; xây dựng module PII scrubber trong `app/pii.py` và tích hợp vào `app/logging_config.py` để redact email, số điện thoại, và số thẻ tín dụng.
-- [EVIDENCE_LINK]: (Link to specific commit or PR)
+- [TASKS_COMPLETED]: Triển khai cấu trúc JSON logging; xây dựng module PII scrubber trong `app/pii.py` và tích hợp vào `app/logging_config.py` để redact thêm hộ chiếu và địa chỉ nhà.
+- [EVIDENCE_LINK]: `85809c2c7a8e32570be341841669e943bc9d331c`
 
 ### [Vũ Minh Khải]
 - [TASKS_COMPLETED]: Hoàn thiện `CorrelationIdMiddleware` để tạo và truyền ID qua header; cấu hình enrichment log trong `app/main.py`; thực hiện `load_test.py` để kiểm thử độ chịu tải và tạo dữ liệu traces.
