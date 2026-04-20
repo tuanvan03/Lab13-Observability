@@ -9,7 +9,7 @@
 - MEMBERS: 
   - Member A: [Ninh Quang Trí - 2A202600249] | Role: Logging & PII
   - Member B: [Vũ Minh Khải - 2A202600343] | Role: Tracing & Enrichment + Load Test
-  - Member C: [Đoàn Văn Tuấn] | Role: SLO & Alerts
+  - Member C: [Đoàn Văn Tuấn - 2A202600046] | Role: SLO & Alerts
   - Member D: [Lê Nguyễn Thanh Bình - 2A202600447] | Role: Demo & Report +  Dashboard
 ---
 
@@ -67,8 +67,8 @@
 - [EVIDENCE_LINK]: ``` 1fc6203f7c31687c5f21e7bb2707142e113abbc7, 7b45a3a3280e06dc2f3fca08bb5b684d07d6e932, 9d128ce12de959b879d6bfbf7cd484e149a8d2d6, 1cbd221e06a56583a0ae91b198827fe3e6d96b1f ```
 
 ### [Đoàn Văn Tuấn]
-- [TASKS_COMPLETED]: Hoàn thiện `CorrelationIdMiddleware` để tạo và truyền ID qua header; Thiết lập các ngưỡng SLO trong `config/slo.yaml`; xây dựng bộ alert rules trong `config/alert_rules.yaml` và viết runbook chi tiết trong `docs/alerts.md` cho các tình huống sự cố.
-- [EVIDENCE_LINK]: 
+- [TASKS_COMPLETED]: Hoàn thiện `CorrelationIdMiddleware` để tạo và truyền ID qua header; Thiết lập các ngưỡng SLO trong `config/slo.yaml`; xây dựng bộ alert rules trong `config/alert_rules.yaml` và viết runbook chi tiết trong `docs/alerts.md` cho các tình huống sự cố. 
+- [EVIDENCE_LINK]: ```c492c8fc179191548f7385ec17b3a3158f8fd48b ```, ```da3eafa7987c50589ba324e53ebeee857093919a``` , ```a8df6beb60faee4573ce089c34b013d15da51a2e```
 
 ### [Lê Nguyễn Thanh Bình]
 - [TASKS_COMPLETED]: Thiết kế Dashboard 6 panels theo spec; cấu hình auto-refresh và SLO line; tổng hợp bằng chứng kỹ thuật và soạn thảo nội dung hoàn chỉnh cho báo cáo `blueprint-template.md`.
