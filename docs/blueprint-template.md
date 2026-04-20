@@ -7,7 +7,7 @@
 - GROUP_NAME: Team03-E402
 - REPO_URL: https://github.com/tuanvan03/Lab13-Observability
 - MEMBERS: 
-  - Member A: [Ninh Quang Trí] | Role: Logging & PII
+  - Member A: [Ninh Quang Trí - 2A202600249] | Role: Logging & PII
   - Member B: [Vũ Minh Khải - 2A202600343] | Role: Tracing & Enrichment + Load Test
   - Member C: [Đoàn Văn Tuấn] | Role: SLO & Alerts
   - Member D: [Lê Nguyễn Thanh Bình - 2A202600447] | Role: Demo & Report +  Dashboard
