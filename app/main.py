@@ -14,7 +14,7 @@ from .middleware import CorrelationIdMiddleware
 from .pii import hash_user_id, summarize_text
 from .schemas import ChatRequest, ChatResponse
 from .tracing import tracing_enabled
-from .tracing import langfuse_context, tracing_enabled
+from .tracing import langfuse_client, tracing_enabled
 
 configure_logging()
 log = get_logger()
@@ -34,8 +34,8 @@ async def startup() -> None:
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
-    if hasattr(langfuse_context, "flush"):
-        langfuse_context.flush()
+    if hasattr(langfuse_client, "flush"):
+        langfuse_client.flush()
 
 @app.get("/health")
 async def health() -> dict:
@@ -71,6 +71,7 @@ async def chat(request: Request, body: ChatRequest) -> ChatResponse:
             session_id=body.session_id,
             message=body.message,
         )
+        langfuse_client.flush()
         log.info(
             "response_sent",
             service="api",
