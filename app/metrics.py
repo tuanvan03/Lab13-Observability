@@ -15,6 +15,10 @@ ERRORS: Counter[str] = Counter()
 TRAFFIC: int = 0
 QUALITY_SCORES: list[float] = []
 
+# Per-interval lists — reset after each snapshot save
+INTERVAL_LATENCIES: list[int] = []
+INTERVAL_QUALITY: list[float] = []
+
 HISTORY_PATH = Path(os.getenv("METRICS_HISTORY_PATH", "data/metrics_history.jsonl"))
 
 
@@ -22,10 +26,12 @@ def record_request(latency_ms: int, cost_usd: float, tokens_in: int, tokens_out:
     global TRAFFIC
     TRAFFIC += 1
     REQUEST_LATENCIES.append(latency_ms)
+    INTERVAL_LATENCIES.append(latency_ms)
     REQUEST_COSTS.append(cost_usd)
     REQUEST_TOKENS_IN.append(tokens_in)
     REQUEST_TOKENS_OUT.append(tokens_out)
     QUALITY_SCORES.append(quality_score)
+    INTERVAL_QUALITY.append(quality_score)
 
 
 
@@ -59,8 +65,17 @@ def snapshot() -> dict:
 
 
 def save_snapshot() -> None:
+    global INTERVAL_LATENCIES, INTERVAL_QUALITY
     snap = snapshot()
     snap["ts"] = datetime.now(timezone.utc).isoformat()
+    # Per-interval (windowed) stats — reflect only the last 15s
+    snap["latency_p50_win"] = percentile(INTERVAL_LATENCIES, 50)
+    snap["latency_p95_win"] = percentile(INTERVAL_LATENCIES, 95)
+    snap["latency_p99_win"] = percentile(INTERVAL_LATENCIES, 99)
+    snap["quality_avg_win"] = round(mean(INTERVAL_QUALITY), 4) if INTERVAL_QUALITY else None
+    snap["requests_in_interval"] = len(INTERVAL_LATENCIES)
+    INTERVAL_LATENCIES = []
+    INTERVAL_QUALITY = []
     HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
     with HISTORY_PATH.open("a", encoding="utf-8") as f:
         f.write(json.dumps(snap) + "\n")

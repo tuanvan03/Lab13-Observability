@@ -215,32 +215,76 @@ function updateXRange(minutes) {
 // ── data processing ───────────────────────────────────────────────────────────
 function processSnapshots(snaps) {
   const p50=[], p95=[], p99=[], traffic=[], errPct=[], cost=[], tokIn=[], tokOut=[], quality=[];
-  let lastErrBreakdown = {};
 
   snaps.forEach((s, i) => {
-    const x = s.ts;
-    p50.push({ x, y: s.latency_p50 || 0 });
-    p95.push({ x, y: s.latency_p95 || 0 });
-    p99.push({ x, y: s.latency_p99 || 0 });
-    quality.push({ x, y: s.quality_avg || 0 });
+    const x    = s.ts;
+    const prev = snaps[i - 1];
 
-    const prev    = snaps[i - 1];
+    // Latency: dùng per-interval nếu có (latency_p*_win), fallback all-time
+    p50.push({ x, y: s.latency_p50_win ?? s.latency_p50 ?? 0 });
+    p95.push({ x, y: s.latency_p95_win ?? s.latency_p95 ?? 0 });
+    p99.push({ x, y: s.latency_p99_win ?? s.latency_p99 ?? 0 });
+
+    // Quality: per-interval nếu có, bỏ qua điểm null (không có request trong interval)
+    const qVal = s.quality_avg_win ?? s.quality_avg ?? null;
+    quality.push({ x, y: qVal });
+
+    // Traffic, cost, tokens: delta so với snapshot trước
     const dTraffic = prev ? Math.max(0, s.traffic          - prev.traffic)          : 0;
     const dCost    = prev ? Math.max(0, s.total_cost_usd   - prev.total_cost_usd)   : 0;
     const dTokIn   = prev ? Math.max(0, s.tokens_in_total  - prev.tokens_in_total)  : 0;
     const dTokOut  = prev ? Math.max(0, s.tokens_out_total - prev.tokens_out_total) : 0;
-    const totalErr = Object.values(s.error_breakdown || {}).reduce((a,b)=>a+b, 0);
-    const errRate  = s.traffic > 0 ? parseFloat(((totalErr / s.traffic)*100).toFixed(2)) : 0;
+
+    // Error rate = lỗi phát sinh trong interval này / request trong interval này
+    const errNow  = Object.values(s.error_breakdown    || {}).reduce((a,b)=>a+b, 0);
+    const errPrev = Object.values(prev?.error_breakdown || {}).reduce((a,b)=>a+b, 0);
+    const dErrors = Math.max(0, errNow - errPrev);
+    const errRate = dTraffic > 0 ? parseFloat(((dErrors / dTraffic) * 100).toFixed(2)) : 0;
 
     traffic.push({ x, y: dTraffic });
-    cost.push({ x, y: parseFloat(dCost.toFixed(6)) });
-    tokIn.push({ x, y: dTokIn });
-    tokOut.push({ x, y: dTokOut });
-    errPct.push({ x, y: errRate });
-    lastErrBreakdown = s.error_breakdown || {};
+    cost.push({    x, y: parseFloat(dCost.toFixed(6)) });
+    tokIn.push({   x, y: dTokIn });
+    tokOut.push({  x, y: dTokOut });
+    errPct.push({  x, y: errRate });
   });
 
-  return { p50, p95, p99, traffic, errPct, cost, tokIn, tokOut, quality, lastErrBreakdown };
+  // Window-level aggregates (dùng cho SLO badges và status bar)
+  const first = snaps[0];
+  const last  = snaps.at(-1);
+  const windowTraffic = (last.traffic || 0) - (first.traffic || 0);
+  const windowCost    = (last.total_cost_usd || 0) - (first.total_cost_usd || 0);
+
+  // Error rate tổng trong window = tổng lỗi / tổng traffic của window
+  const totalErrLast  = Object.values(last.error_breakdown  || {}).reduce((a,b)=>a+b, 0);
+  const totalErrFirst = Object.values(first.error_breakdown || {}).reduce((a,b)=>a+b, 0);
+  const windowErrRate = windowTraffic > 0
+    ? parseFloat((((totalErrLast - totalErrFirst) / windowTraffic) * 100).toFixed(2))
+    : 0;
+
+  // Error breakdown delta trong window
+  const windowErrBreakdown = {};
+  const allKeys = new Set([
+    ...Object.keys(last.error_breakdown  || {}),
+    ...Object.keys(first.error_breakdown || {}),
+  ]);
+  allKeys.forEach(k => {
+    const delta = (last.error_breakdown?.[k] || 0) - (first.error_breakdown?.[k] || 0);
+    if (delta > 0) windowErrBreakdown[k] = delta;
+  });
+
+  // Quality avg trong window (chỉ tính điểm có data)
+  const qualPoints = quality.map(p => p.y).filter(v => v !== null && v > 0);
+  const windowQual = qualPoints.length > 0
+    ? parseFloat((qualPoints.reduce((a,b)=>a+b,0) / qualPoints.length).toFixed(4))
+    : 0;
+
+  // P95 gần nhất có traffic
+  const recentP95 = [...p95].reverse().find(p => p.y > 0)?.y ?? 0;
+
+  return {
+    p50, p95, p99, traffic, errPct, cost, tokIn, tokOut, quality,
+    windowTraffic, windowCost, windowErrRate, windowErrBreakdown, windowQual, recentP95,
+  };
 }
 
 // ── apply data + SLOs ─────────────────────────────────────────────────────────
@@ -259,17 +303,18 @@ function applyToCharts(d, minutes) {
   set(charts.cTok,     d.tokIn, d.tokOut);
   set(charts.cQual,    d.quality);
 
-  const lastSnap = { p95: d.p95.at(-1)?.y ?? 0, err: d.errPct.at(-1)?.y ?? 0, qual: d.quality.at(-1)?.y ?? 0 };
-  setSLO('slo-lat',  lastSnap.p95  <= SLO_LAT,  'P95=' + lastSnap.p95 + 'ms');
-  setSLO('slo-err',  lastSnap.err  <= SLO_ERR,  'Err=' + lastSnap.err + '%');
-  setSLO('slo-qual', lastSnap.qual >= SLO_QUAL, 'Q='   + lastSnap.qual.toFixed(3));
-  document.getElementById('qualNum').textContent = lastSnap.qual.toFixed(3);
+  // SLO badges dùng window-level aggregates
+  setSLO('slo-lat',  d.recentP95    <= SLO_LAT,  'P95=' + d.recentP95 + 'ms');
+  setSLO('slo-err',  d.windowErrRate <= SLO_ERR,  'Err=' + d.windowErrRate + '%');
+  setSLO('slo-qual', d.windowQual   >= SLO_QUAL, 'Q='   + d.windowQual.toFixed(3));
+  document.getElementById('qualNum').textContent = d.windowQual.toFixed(3);
 
+  // Error breakdown: chỉ hiện lỗi phát sinh trong window
   const el = document.getElementById('errList');
-  const entries = Object.entries(d.lastErrBreakdown);
+  const entries = Object.entries(d.windowErrBreakdown);
   el.innerHTML = entries.length
-    ? entries.map(([k,v])=>`<li><span>${k}</span><span>${v}</span></li>`).join('')
-    : '<li><span style="color:#4ade80">No errors recorded</span></li>';
+    ? entries.map(([k,v])=>`<li><span>${k}</span><span>+${v}</span></li>`).join('')
+    : '<li><span style="color:#4ade80">No errors in this window</span></li>';
 }
 
 function setSLO(id, ok, label) {
@@ -296,19 +341,20 @@ async function loadHistory(minutes) {
     return;
   }
 
-  applyToCharts(processSnapshots(snaps), minutes);
+  const d = processSnapshots(snaps);
+  applyToCharts(d, minutes);
 
-  const last = snaps.at(-1);
-  const now  = new Date();
+  const now      = new Date();
   const winStart = new Date(now.getTime() - minutes * 60 * 1000);
-  const label = minutes >= 60 ? `${minutes/60}h` : `${minutes}m`;
+  const label    = minutes >= 60 ? `${minutes/60}h` : `${minutes}m`;
   document.getElementById('status-msg').textContent =
-    `Cửa sổ ${label}: ${winStart.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} → ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} | ${snaps.length} điểm | ${last.traffic} req | $${last.total_cost_usd.toFixed(4)}`;
+    `Cửa sổ ${label}: ${winStart.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} → ${now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}` +
+    ` | ${d.windowTraffic} req | $${d.windowCost.toFixed(4)} | Err: ${d.windowErrRate}%`;
 }
 
 // ── polling ────────────────────────────────────────────────────────────────────
 async function poll() {
-  try { await fetch(API); } catch {}
+  // Backend tự lưu snapshot mỗi 15s qua asyncio task — không cần gọi /metrics
   await loadHistory(currentMinutes);
 }
 
