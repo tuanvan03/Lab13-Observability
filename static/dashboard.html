@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+# This is a simple dashboard to visualize the metrics collected in Day 13 Lab.
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -322,12 +323,14 @@ function applyToCharts(d, minutes) {
   set(charts.cQual,    d.quality);
 
   // SLO badges dùng window-level aggregates
+  // Latency SLO check dựa trên recentP95 thay vì windowP95 để phản ánh đúng trải nghiệm người dùng trong window đang xem
   setSLO('slo-lat',  d.recentP95    <= SLO_LAT,  'P95=' + d.recentP95 + 'ms');
   setSLO('slo-err',  d.windowErrRate <= SLO_ERR,  'Err=' + d.windowErrRate + '%');
   setSLO('slo-qual', d.windowQual   >= SLO_QUAL, 'Q='   + d.windowQual.toFixed(3));
   document.getElementById('qualNum').textContent = d.windowQual.toFixed(3);
 
   // Error breakdown: chỉ hiện lỗi phát sinh trong window
+  // Nếu delta = 0 thì lỗi đó không phát sinh trong window, dù có thể xuất hiện trong snapshot cuối
   const el = document.getElementById('errList');
   const entries = Object.entries(d.windowErrBreakdown);
   el.innerHTML = entries.length
@@ -342,6 +345,7 @@ function setSLO(id, ok, label) {
 }
 
 // ── load & render ─────────────────────────────────────────────────────────────
+// Load lịch sử metrics trong khoảng thời gian đã chọn, xử lý và cập nhật lên charts
 async function loadHistory(minutes) {
   let snaps;
   try {
