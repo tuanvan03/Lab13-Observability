@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Day 13 Observability Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0f1117;color:#e2e8f0;font-family:'Segoe UI',sans-serif;padding:20px}
+    h1{font-size:1.4rem;margin-bottom:4px;color:#7dd3fc}
+    .topbar{display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+    .meta{font-size:0.8rem;color:#64748b}
+    .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:6px;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .range-btns{display:flex;gap:6px}
+    .range-btns button{background:#1e2330;border:1px solid #2d3748;color:#94a3b8;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:0.78rem;transition:.15s}
+    .range-btns button.active,.range-btns button:hover{background:#38bdf8;color:#0f1117;border-color:#38bdf8;font-weight:600}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .panel{background:#1e2330;border:1px solid #2d3748;border-radius:10px;padding:16px}
+    .panel h2{font-size:0.78rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+    .panel canvas{max-height:175px}
+    .slo{font-size:0.68rem;padding:2px 7px;border-radius:20px}
+    .ok{background:#14532d;color:#4ade80}
+    .bad{background:#7f1d1d;color:#f87171}
+    .err-list{font-size:0.76rem;margin-top:8px}
+    .err-list li{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1e293b;color:#94a3b8}
+    .stat{display:flex;justify-content:space-between;align-items:baseline;margin-top:6px}
+    .big{font-size:1.7rem;font-weight:700;color:#f1f5f9}
+    .unit{font-size:0.72rem;color:#475569}
+    #status-msg{font-size:0.75rem;color:#475569}
+  </style>
+</head>
+<body>
+<h1><span class="dot"></span>Observability Dashboard — Day 13 Lab</h1>
+<div class="topbar">
+  <div class="range-btns">
+    <button onclick="setRange(30)"   data-m="30">30m</button>
+    <button onclick="setRange(60)"   data-m="60"  class="active">1h</button>
+    <button onclick="setRange(120)"  data-m="120">2h</button>
+    <button onclick="setRange(360)"  data-m="360">6h</button>
+    <button onclick="setRange(720)"  data-m="720">12h</button>
+    <button onclick="setRange(1440)" data-m="1440">1d</button>
+  </div>
+  <span id="status-msg" class="meta">Đang kết nối…</span>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>1. Latency P50/P95/P99 <span id="slo-lat" class="slo ok">SLO OK</span></h2>
+    <canvas id="cLat"></canvas>
+  </div>
+  <div class="panel">
+    <h2>2. Traffic (requests/interval)</h2>
+    <canvas id="cTraffic"></canvas>
+  </div>
+  <div class="panel">
+    <h2>3. Error Rate <span id="slo-err" class="slo ok">SLO OK</span></h2>
+    <canvas id="cErr"></canvas>
+    <ul class="err-list" id="errList"></ul>
+  </div>
+  <div class="panel">
+    <h2>4. Cost over time (USD)</h2>
+    <canvas id="cCost"></canvas>
+  </div>
+  <div class="panel">
+    <h2>5. Tokens In / Out (per interval)</h2>
+    <canvas id="cTok"></canvas>
+  </div>
+  <div class="panel">
+    <h2>6. Quality Score <span id="slo-qual" class="slo ok">SLO OK</span></h2>
+    <canvas id="cQual"></canvas>
+    <div class="stat">
+      <span class="unit">avg quality (0–1)</span>
+      <span class="big" id="qualNum">—</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const API         = 'http://localhost:8000/metrics';
+const HISTORY_API = 'http://localhost:8000/metrics/history';
+const REFRESH_MS  = 15000;
+const SLO_LAT     = 3000;
+const SLO_ERR     = 2;
+const SLO_QUAL    = 0.75;
+
+let currentMinutes = 60;
+let charts = {};
+
+// ── time scale helpers ────────────────────────────────────────────────────────
+function timeUnit(minutes) {
+  if (minutes <= 30)   return { unit:'minute', stepSize:5  };
+  if (minutes <= 120)  return { unit:'minute', stepSize:15 };
+  if (minutes <= 360)  return { unit:'minute', stepSize:30 };
+  if (minutes <= 720)  return { unit:'hour',   stepSize:1  };
+  return                      { unit:'hour',   stepSize:4  };
+}
+
+function xAX(minutes) {
+  const { unit, stepSize } = timeUnit(minutes);
+  return {
+    type: 'time',
+    time: { unit, stepSize, displayFormats: { minute:'HH:mm', hour:'HH:mm dd/MM' } },
+    ticks: { color:'#64748b', font:{size:10}, maxRotation:45, source:'auto' },
+    grid: { color:'#1e293b' },
+  };
+}
+
+function yAX(title, extra, cb) {
+  return {
+    ticks: { color:'#64748b', font:{size:10}, callback: cb||undefined },
+    grid: { color:'#1e293b' },
+    title: { display:!!title, text:title, color:'#64748b' },
+    suggestedMin: 0,
+    ...extra,
+  };
+}
+
+const LINE   = { pointRadius: 2, tension: 0.4, fill: false };
+const LEGEND = { labels:{ color:'#cbd5e1', font:{size:11} } };
+
+// ── chart factory ─────────────────────────────────────────────────────────────
+function makeChart(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id).getContext('2d'), cfg);
+  return charts[id];
+}
+
+// Datasets dùng {x: ISO-string, y: value} để time scale hoạt động đúng
+function buildCharts(minutes) {
+  const xScale = xAX(minutes);
+
+  makeChart('cLat', {
+    type:'line',
+    data:{ datasets:[
+      { ...LINE, label:'P50 (ms)', data:[], borderColor:'#34d399' },
+      { ...LINE, label:'P95 (ms)', data:[], borderColor:'#fbbf24' },
+      { ...LINE, label:'P99 (ms)', data:[], borderColor:'#f87171' },
+    ]},
+    options:{ responsive:true, animation:false, plugins:{ legend:LEGEND },
+      scales:{ x:{ ...xScale }, y: yAX('ms') }
+    }
+  });
+
+  makeChart('cTraffic', {
+    type:'bar',
+    data:{ datasets:[
+      { label:'Requests', data:[], backgroundColor:'#7c3aed88', borderColor:'#7c3aed', borderWidth:1,
+        barPercentage:0.9, categoryPercentage:1 },
+    ]},
+    options:{ responsive:true, animation:false, plugins:{ legend:LEGEND },
+      scales:{ x:{ ...xScale }, y: yAX('count') }
+    }
+  });
+
+  makeChart('cErr', {
+    type:'line',
+    data:{ datasets:[
+      { ...LINE, label:'Error %', data:[], borderColor:'#f87171', backgroundColor:'#f8717120', fill:true },
+    ]},
+    options:{ responsive:true, animation:false, plugins:{ legend:LEGEND },
+      scales:{ x:{ ...xScale }, y: yAX('%', { max:15 }) }
+    }
+  });
+
+  makeChart('cCost', {
+    type:'line',
+    data:{ datasets:[
+      { ...LINE, label:'Cost (USD)', data:[], borderColor:'#38bdf8', backgroundColor:'#38bdf820', fill:true },
+    ]},
+    options:{ responsive:true, animation:false, plugins:{ legend:LEGEND },
+      scales:{ x:{ ...xScale }, y: yAX('USD', {}, v=>'$'+v.toFixed(5)) }
+    }
+  });
+
+  makeChart('cTok', {
+    type:'bar',
+    data:{ datasets:[
+      { label:'Tokens In',  data:[], backgroundColor:'#06b6d488', borderColor:'#06b6d4', borderWidth:1,
+        barPercentage:0.9, categoryPercentage:1 },
+      { label:'Tokens Out', data:[], backgroundColor:'#8b5cf688', borderColor:'#8b5cf6', borderWidth:1,
+        barPercentage:0.9, categoryPercentage:1 },
+    ]},
+    options:{ responsive:true, animation:false, plugins:{ legend:LEGEND },
+      scales:{ x:{ ...xScale }, y: yAX('tokens') }
+    }
+  });
+
+  makeChart('cQual', {
+    type:'line',
+    data:{ datasets:[
+      { ...LINE, label:'Quality', data:[], borderColor:'#a78bfa', backgroundColor:'#a78bfa20', fill:true },
+    ]},
+    options:{ responsive:true, animation:false, plugins:{ legend:LEGEND },
+      scales:{ x:{ ...xScale }, y: yAX('score', { min:0, max:1 }) }
+    }
+  });
+}
+
+// ── update X axis range on all charts ────────────────────────────────────────
+function updateXRange(minutes) {
+  const now   = new Date();
+  const start = new Date(now.getTime() - minutes * 60 * 1000);
+  const { unit, stepSize } = timeUnit(minutes);
+  Object.values(charts).forEach(c => {
+    c.options.scales.x.min  = start.toISOString();
+    c.options.scales.x.max  = now.toISOString();
+    c.options.scales.x.time.unit     = unit;
+    c.options.scales.x.time.stepSize = stepSize;
+  });
+}
+
+// ── data processing ───────────────────────────────────────────────────────────
+function processSnapshots(snaps) {
+  const p50=[], p95=[], p99=[], traffic=[], errPct=[], cost=[], tokIn=[], tokOut=[], quality=[];
+  let lastErrBreakdown = {};
+
+  snaps.forEach((s, i) => {
+    const x = s.ts;
+    p50.push({ x, y: s.latency_p50 || 0 });
+    p95.push({ x, y: s.latency_p95 || 0 });
+    p99.push({ x, y: s.latency_p99 || 0 });
+    quality.push({ x, y: s.quality_avg || 0 });
+
+    const prev    = snaps[i - 1];
+    const dTraffic = prev ? Math.max(0, s.traffic          - prev.traffic)          : 0;
+    const dCost    = prev ? Math.max(0, s.total_cost_usd   - prev.total_cost_usd)   : 0;
+    const dTokIn   = prev ? Math.max(0, s.tokens_in_total  - prev.tokens_in_total)  : 0;
+    const dTokOut  = prev ? Math.max(0, s.tokens_out_total - prev.tokens_out_total) : 0;
+    const totalErr = Object.values(s.error_breakdown || {}).reduce((a,b)=>a+b, 0);
+    const errRate  = s.traffic > 0 ? parseFloat(((totalErr / s.traffic)*100).toFixed(2)) : 0;
+
+    traffic.push({ x, y: dTraffic });
+    cost.push({ x, y: parseFloat(dCost.toFixed(6)) });
+    tokIn.push({ x, y: dTokIn });
+    tokOut.push({ x, y: dTokOut });
+    errPct.push({ x, y: errRate });
+    lastErrBreakdown = s.error_breakdown || {};
+  });
+
+  return { p50, p95, p99, traffic, errPct, cost, tokIn, tokOut, quality, lastErrBreakdown };
+}
+
+// ── apply data + SLOs ─────────────────────────────────────────────────────────
+function applyToCharts(d, minutes) {
+  updateXRange(minutes);
+
+  function set(chart, ...datasets) {
+    datasets.forEach((arr, i) => chart.data.datasets[i].data = arr);
+    chart.update();
+  }
+
+  set(charts.cLat,     d.p50, d.p95, d.p99);
+  set(charts.cTraffic, d.traffic);
+  set(charts.cErr,     d.errPct);
+  set(charts.cCost,    d.cost);
+  set(charts.cTok,     d.tokIn, d.tokOut);
+  set(charts.cQual,    d.quality);
+
+  const lastSnap = { p95: d.p95.at(-1)?.y ?? 0, err: d.errPct.at(-1)?.y ?? 0, qual: d.quality.at(-1)?.y ?? 0 };
+  setSLO('slo-lat',  lastSnap.p95  <= SLO_LAT,  'P95=' + lastSnap.p95 + 'ms');
+  setSLO('slo-err',  lastSnap.err  <= SLO_ERR,  'Err=' + lastSnap.err + '%');
+  setSLO('slo-qual', lastSnap.qual >= SLO_QUAL, 'Q='   + lastSnap.qual.toFixed(3));
+  document.getElementById('qualNum').textContent = lastSnap.qual.toFixed(3);
+
+  const el = document.getElementById('errList');
+  const entries = Object.entries(d.lastErrBreakdown);
+  el.innerHTML = entries.length
+    ? entries.map(([k,v])=>`<li><span>${k}</span><span>${v}</span></li>`).join('')
+    : '<li><span style="color:#4ade80">No errors recorded</span></li>';
+}
+
+function setSLO(id, ok, label) {
+  const el = document.getElementById(id);
+  el.className = 'slo ' + (ok ? 'ok' : 'bad');
+  el.textContent = (ok ? '✓ ' : '✗ ') + label;
+}
+
+// ── load & render ─────────────────────────────────────────────────────────────
+async function loadHistory(minutes) {
+  let snaps;
+  try {
+    const r = await fetch(`${HISTORY_API}?minutes=${minutes}`);
+    snaps = await r.json();
+  } catch {
+    document.getElementById('status-msg').textContent = '⚠ Không kết nối được localhost:8000 — app đã chạy chưa?';
+    return;
+  }
+
+  if (!snaps.length) {
+    updateXRange(minutes);
+    Object.values(charts).forEach(c => { c.data.datasets.forEach(ds => ds.data = []); c.update(); });
+    document.getElementById('status-msg').textContent = `Không có data trong ${minutes} phút qua — chạy load_test.py để sinh traffic.`;
+    return;
+  }
+
+  applyToCharts(processSnapshots(snaps), minutes);
+
+  const last = snaps.at(-1);
+  const now  = new Date();
+  const winStart = new Date(now.getTime() - minutes * 60 * 1000);
+  const label = minutes >= 60 ? `${minutes/60}h` : `${minutes}m`;
+  document.getElementById('status-msg').textContent =
+    `Cửa sổ ${label}: ${winStart.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} → ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} | ${snaps.length} điểm | ${last.traffic} req | $${last.total_cost_usd.toFixed(4)}`;
+}
+
+// ── polling ────────────────────────────────────────────────────────────────────
+async function poll() {
+  try { await fetch(API); } catch {}
+  await loadHistory(currentMinutes);
+}
+
+// ── time range selector ────────────────────────────────────────────────────────
+function setRange(minutes) {
+  currentMinutes = minutes;
+  document.querySelectorAll('.range-btns button').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.m) === minutes)
+  );
+  loadHistory(minutes);
+}
+
+// ── init ───────────────────────────────────────────────────────────────────────
+buildCharts(currentMinutes);
+loadHistory(currentMinutes);
+setInterval(poll, REFRESH_MS);
+</script>
+</body>
+</html>

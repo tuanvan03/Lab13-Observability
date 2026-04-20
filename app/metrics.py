@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+import os
 from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
 from statistics import mean
 
 REQUEST_LATENCIES: list[int] = []
@@ -10,6 +14,8 @@ REQUEST_TOKENS_OUT: list[int] = []
 ERRORS: Counter[str] = Counter()
 TRAFFIC: int = 0
 QUALITY_SCORES: list[float] = []
+
+HISTORY_PATH = Path(os.getenv("METRICS_HISTORY_PATH", "data/metrics_history.jsonl"))
 
 
 def record_request(latency_ms: int, cost_usd: float, tokens_in: int, tokens_out: int, quality_score: float) -> None:
@@ -50,3 +56,29 @@ def snapshot() -> dict:
         "error_breakdown": dict(ERRORS),
         "quality_avg": round(mean(QUALITY_SCORES), 4) if QUALITY_SCORES else 0.0,
     }
+
+
+def save_snapshot() -> None:
+    snap = snapshot()
+    snap["ts"] = datetime.now(timezone.utc).isoformat()
+    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with HISTORY_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(snap) + "\n")
+
+
+def load_history(minutes: int) -> list[dict]:
+    if not HISTORY_PATH.exists():
+        return []
+    cutoff = datetime.now(timezone.utc).timestamp() - (minutes * 60)
+    records = []
+    for line in HISTORY_PATH.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+            ts = datetime.fromisoformat(rec["ts"]).timestamp()
+            if ts >= cutoff:
+                records.append(rec)
+        except (json.JSONDecodeError, KeyError, ValueError):
+            continue
+    return records

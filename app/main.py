@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import os
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from structlog.contextvars import bind_contextvars
 
 from .agent import LabAgent
 from .incidents import disable, enable, status
 from .logging_config import configure_logging, get_logger
-from .metrics import record_error, snapshot
+from .metrics import load_history, record_error, save_snapshot, snapshot
 from .middleware import CorrelationIdMiddleware
 from .pii import hash_user_id, summarize_text
 from .schemas import ChatRequest, ChatResponse
@@ -19,8 +22,16 @@ from .tracing import langfuse_client, tracing_enabled
 configure_logging()
 log = get_logger()
 app = FastAPI(title="Day 13 Observability Lab")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.add_middleware(CorrelationIdMiddleware)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 agent = LabAgent()
+
+
+async def _metrics_snapshot_loop() -> None:
+    while True:
+        await asyncio.sleep(15)
+        save_snapshot()
 
 
 @app.on_event("startup")
@@ -31,6 +42,7 @@ async def startup() -> None:
         env=os.getenv("APP_ENV", "dev"),
         payload={"tracing_enabled": tracing_enabled()},
     )
+    asyncio.create_task(_metrics_snapshot_loop())
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
@@ -45,6 +57,11 @@ async def health() -> dict:
 @app.get("/metrics")
 async def metrics() -> dict:
     return snapshot()
+
+
+@app.get("/metrics/history")
+async def metrics_history(minutes: int = 60) -> list:
+    return load_history(minutes)
 
 
 @app.post("/chat", response_model=ChatResponse)
