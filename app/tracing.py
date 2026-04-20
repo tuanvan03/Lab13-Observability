@@ -7,7 +7,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 try:
-    from langfuse.decorators import observe, langfuse_context
+    from langfuse import observe, get_client
+    langfuse_context = get_client()
+    
 except Exception:  # pragma: no cover
     def observe(*args: Any, **kwargs: Any):
         def decorator(func):
