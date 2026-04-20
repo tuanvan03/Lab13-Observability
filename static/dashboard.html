@@ -248,7 +248,9 @@ function processSnapshots(snaps) {
     const errNow  = Object.values(s.error_breakdown    || {}).reduce((a,b)=>a+b, 0);
     const errPrev = Object.values(prev.error_breakdown  || {}).reduce((a,b)=>a+b, 0);
     const dErrors = Math.max(0, errNow - errPrev);
-    const errRate = dTraffic > 0 ? parseFloat(((dErrors / dTraffic) * 100).toFixed(2)) : 0;
+    // Dùng requests_in_interval (bao gồm cả request lỗi) làm denominator
+    const intervalTotal = s.requests_in_interval ?? dTraffic;
+    const errRate = intervalTotal > 0 ? parseFloat(((dErrors / intervalTotal) * 100).toFixed(2)) : 0;
 
     traffic.push({ x, y: dTraffic });
     cost.push({    x, y: parseFloat(dCost.toFixed(6)) });
@@ -261,8 +263,9 @@ function processSnapshots(snaps) {
   // snaps[0] là baseline (counter tại thời điểm đầu window), snaps[1] là interval đầu tiên có data
   const baseline = snaps.length > 1 ? snaps[0] : null;
   const last  = snaps.at(-1);
+  // Dùng total_requests (success + error) nếu có, fallback về traffic (success only)
   const windowTraffic = baseline
-    ? Math.max(0, (last.traffic || 0) - (baseline.traffic || 0))
+    ? Math.max(0, (last.total_requests ?? last.traffic ?? 0) - (baseline.total_requests ?? baseline.traffic ?? 0))
     : 0;
   const windowCost = baseline
     ? Math.max(0, (last.total_cost_usd || 0) - (baseline.total_cost_usd || 0))
