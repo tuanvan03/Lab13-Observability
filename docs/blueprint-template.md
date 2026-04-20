@@ -2,53 +2,55 @@
 
 > **Instruction**: Fill in all sections below. This report is designed to be parsed by an automated grading assistant. Ensure all tags (e.g., `[GROUP_NAME]`) are preserved.
 
+ 
 ## 1. Team Metadata
-- [GROUP_NAME]: Team03-E402
-- [REPO_URL]: https://github.com/tuanvan03/Lab13-Observability
-- [MEMBERS]: 
+- GROUP_NAME: Team03-E402
+- REPO_URL: https://github.com/tuanvan03/Lab13-Observability
+- MEMBERS: 
   - Member A: [Ninh Quang Trí] | Role: Logging & PII
   - Member B: [Vũ Minh Khải] | Role: Tracing & Enrichment + Load Test
   - Member C: [Đoàn Văn Tuấn] | Role: SLO & Alerts
   - Member D: [Lê Nguyễn Thanh Bình] | Role: Demo & Report +  Dashboard
-
 ---
 
 ## 2. Group Performance (Auto-Verified)
-- [VALIDATE_LOGS_FINAL_SCORE]:100/100
-- [TOTAL_TRACES_COUNT]: 126
-- [PII_LEAKS_FOUND]: 0
+- VALIDATE_LOGS_FINAL_SCORE: 100/100
+- TOTAL_TRACES_COUNT: 126
+- PII_LEAKS_FOUND: 0
 
 ---
 
 ## 3. Technical Evidence (Group)
 
 ### 3.1 Logging & Tracing
-- [EVIDENCE_CORRELATION_ID_SCREENSHOT]: ![alt text](image.png)
-- [EVIDENCE_PII_REDACTION_SCREENSHOT]: ![alt text](image-1.png)
-- [EVIDENCE_TRACE_WATERFALL_SCREENSHOT]: ![alt text](image-3.png)
-- [TRACE_WATERFALL_EXPLANATION]: ![alt text](image-2.png)
+- EVIDENCE_CORRELATION_ID_SCREENSHOT: ![alt text](image.png)
+- EVIDENCE_PII_REDACTION_SCREENSHOT: ![alt text](image-1.png)
+- EVIDENCE_TRACE_WATERFALL_SCREENSHOT: ![alt text](image-3.png)
+- TRACE_WATERFALL_EXPLANATION: ![alt text](image-2.png)
 
 ### 3.2 Dashboard & SLOs
-- [DASHBOARD_6_PANELS_SCREENSHOT]: ![alt text](image-5.png)
-- [SLO_TABLE]:
-| SLI | Target | Window | Current Value |
-|---|---:|---|---:|
-| Latency P95 | < 3000ms | 28d | 154ms |
-| Error Rate | < 2% | 28d | 0% |
-| Cost Budget | < $2.5/day | 1d | ~$0.10 |
+- DASHBOARD_6_PANELS_SCREENSHOT: ![alt text](image-5.png)
+- SLO_TABLE:
+  
+| SLI              | Target          | Window | Current Value |
+|------------------|-----------------|--------|---------------|
+| Latency P95      | < 3000ms        | 28d    | 154ms         |
+| Error Rate       | < 2%            | 28d    | 0%            |
+| Cost Budget      | < $2.5/day      | 1d     | ~$0.10        |
 
 ### 3.3 Alerts & Runbook
-- [ALERT_RULES_SCREENSHOT]: ![alt text](image-4.png)
-- [SAMPLE_RUNBOOK_LINK]: - [SAMPLE_RUNBOOK_LINK]: [docs/alerts.md#1-high-latency-p95](docs/alerts.md#1-high-latency-p95)
+- ALERT_RULES_SCREENSHOT: 
+- ![alt text](image-4.png)
+- SAMPLE_RUNBOOK_LINK: [docs/alerts.md#1-high-latency-p95](docs/alerts.md#1-high-latency-p95)
 
 ---
 
 ## 4. Incident Response (Group)
-- [SCENARIO_NAME]:   rag_slow
-- [SYMPTOMS_OBSERVED]: Độ trễ (latency) của hệ thống tăng vọt đáng kể khi thực hiện các truy vấn yêu cầu truy xuất dữ liệu từ RAG, làm ảnh hưởng đến thời gian phản hồi của agent.
-- [ROOT_CAUSE_PROVED_BY]: Sự cố được xác định bởi log event incident_enabled với `correlation_id: req-66576059`. Phân tích Trace ID này trên Langfuse cho thấy span của hàm retrieve trong `app/mock_rag.py` bị chặn bởi lệnh `time.sleep(2.5)`, khớp chính xác với kịch bản giả lập `rag_slow`.
-- [FIX_ACTION]: Đã thực hiện gọi API `/incidents/rag_slow/disable` để vô hiệu hóa kịch bản giả lập, khôi phục trạng thái hoạt động bình thường của hệ thống.
-- [PREVENTIVE_MEASURE]: Thiết lập ngưỡng timeout cho các cuộc gọi truy xuất dữ liệu để tránh tình trạng hệ thống bị treo do RAG chậm.
+- SCENARIO_NAME:   rag_slow
+- SYMPTOMS_OBSERVED: Độ trễ (latency) của hệ thống tăng vọt đáng kể khi thực hiện các truy vấn yêu cầu truy xuất dữ liệu từ RAG, làm ảnh hưởng đến thời gian phản hồi của agent.
+- ROOT_CAUSE_PROVED_BY: Sự cố được xác định bởi log event incident_enabled với `correlation_id: req-66576059`. Phân tích Trace ID này trên Langfuse cho thấy span của hàm retrieve trong `app/mock_rag.py` bị chặn bởi lệnh `time.sleep(2.5)`, khớp chính xác với kịch bản giả lập `rag_slow`.
+- FIX_ACTION: Đã thực hiện gọi API `/incidents/rag_slow/disable` để vô hiệu hóa kịch bản giả lập, khôi phục trạng thái hoạt động bình thường của hệ thống.
+- PREVENTIVE_MEASURE: Thiết lập ngưỡng timeout cho các cuộc gọi truy xuất dữ liệu để tránh tình trạng hệ thống bị treo do RAG chậm.
 
 ---
 
