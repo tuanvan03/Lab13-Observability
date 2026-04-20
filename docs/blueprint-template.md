@@ -29,13 +29,13 @@
 - [TRACE_WATERFALL_EXPLANATION]: ![alt text](image-2.png)
 
 ### 3.2 Dashboard & SLOs
-- [DASHBOARD_6_PANELS_SCREENSHOT]: [Path to image]
+- [DASHBOARD_6_PANELS_SCREENSHOT]: ![alt text](image-5.png)
 - [SLO_TABLE]:
 | SLI | Target | Window | Current Value |
 |---|---:|---|---:|
-| Latency P95 | < 3000ms | 28d | |
-| Error Rate | < 2% | 28d | |
-| Cost Budget | < $2.5/day | 1d | |
+| Latency P95 | < 3000ms | 28d | 154ms |
+| Error Rate | < 2% | 28d | 0% |
+| Cost Budget | < $2.5/day | 1d | ~$0.10 |
 
 ### 3.3 Alerts & Runbook
 - [ALERT_RULES_SCREENSHOT]: ![alt text](image-4.png)
