@@ -8,15 +8,17 @@
 - REPO_URL: https://github.com/tuanvan03/Lab13-Observability
 - MEMBERS: 
   - Member A: [Ninh Quang Trí] | Role: Logging & PII
-  - Member B: [Vũ Minh Khải] | Role: Tracing & Enrichment + Load Test
+  - Member B: [Vũ Minh Khải - 2A202600343] | Role: Tracing & Enrichment + Load Test
   - Member C: [Đoàn Văn Tuấn] | Role: SLO & Alerts
-  - Member D: [Lê Nguyễn Thanh Bình] | Role: Demo & Report +  Dashboard
+  - Member D: [Lê Nguyễn Thanh Bình - 2A202600447] | Role: Demo & Report +  Dashboard
 ---
 
 ## 2. Group Performance (Auto-Verified)
 - VALIDATE_LOGS_FINAL_SCORE: 100/100
 - TOTAL_TRACES_COUNT: 126
 - PII_LEAKS_FOUND: 0
+
+- ![alt text](image-7.png)
 
 ---
 
