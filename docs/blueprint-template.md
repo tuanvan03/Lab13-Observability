@@ -59,11 +59,11 @@
 - [EVIDENCE_LINK]: ``` 85809c2c7a8e32570be341841669e943bc9d331c ```
 
 ### [Vũ Minh Khải]
-- [TASKS_COMPLETED]: Hoàn thiện `CorrelationIdMiddleware` để tạo và truyền ID qua header; cấu hình enrichment log trong `app/main.py`; thực hiện `load_test.py` để kiểm thử độ chịu tải và tạo dữ liệu traces.
-- [EVIDENCE_LINK]: 
+- [TASKS_COMPLETED]: Sửa lỗi để config langfuse, cấu hình enrichment log trong `app/main.py`; thực hiện `load_test.py` để kiểm thử độ chịu tải và tạo dữ liệu traces. Chỉnh sửa dashboard (Cùng bạn Bình)
+- [EVIDENCE_LINK]: ``` 1fc6203f7c31687c5f21e7bb2707142e113abbc7, 7b45a3a3280e06dc2f3fca08bb5b684d07d6e932, 9d128ce12de959b879d6bfbf7cd484e149a8d2d6, 1cbd221e06a56583a0ae91b198827fe3e6d96b1f ```
 
 ### [Đoàn Văn Tuấn]
-- [TASKS_COMPLETED]: Thiết lập các ngưỡng SLO trong `config/slo.yaml`; xây dựng bộ alert rules trong `config/alert_rules.yaml` và viết runbook chi tiết trong `docs/alerts.md` cho các tình huống sự cố.
+- [TASKS_COMPLETED]: Hoàn thiện `CorrelationIdMiddleware` để tạo và truyền ID qua header; Thiết lập các ngưỡng SLO trong `config/slo.yaml`; xây dựng bộ alert rules trong `config/alert_rules.yaml` và viết runbook chi tiết trong `docs/alerts.md` cho các tình huống sự cố.
 - [EVIDENCE_LINK]: 
 
 ### [Lê Nguyễn Thanh Bình]
