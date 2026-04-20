@@ -68,7 +68,7 @@
 
 ### [Lê Nguyễn Thanh Bình]
 - [TASKS_COMPLETED]: Thiết kế Dashboard 6 panels theo spec; cấu hình auto-refresh và SLO line; tổng hợp bằng chứng kỹ thuật và soạn thảo nội dung hoàn chỉnh cho báo cáo `blueprint-template.md`.
-- [EVIDENCE_LINK]: 
+- [EVIDENCE_LINK]: ![alt text](image-6.png)
 
 ---
 
